@@ -2,6 +2,8 @@ package vfs
 
 import (
 	"errors"
+	// "log"
+	"strings"
 	"time"
 )
 
@@ -30,10 +32,10 @@ func NewFileSystem() *FileSystem {
 		Parent:  nil,
 	}
 
-	return &FileSystem{Root: root}
+	return &FileSystem{Root: root, CurrentDir: root}
 }
 
-func (fs *FileSystem) createFile(name string, content []byte) error {
+func (fs *FileSystem) CreateFile(name string, content []byte) error {
 	if !fs.CurrentDir.IsDir {
 		return errors.New("not a directory")
 	}
@@ -51,7 +53,7 @@ func (fs *FileSystem) createFile(name string, content []byte) error {
 	return nil
 }
 
-func (fs *FileSystem) createDir(name string) error {
+func (fs *FileSystem) CreateDir(name string) error {
 	if !fs.CurrentDir.IsDir {
 		return errors.New("not a directory")
 	}
@@ -66,4 +68,50 @@ func (fs *FileSystem) createDir(name string) error {
 
 	fs.CurrentDir.Files = append(fs.CurrentDir.Files, newDir)
 	return nil
+}
+
+func (fs *FileSystem) ChangeDir(inputText string) error {
+	if inputText == ".." {
+		if fs.CurrentDir.Parent != nil {
+			fs.CurrentDir = fs.CurrentDir.Parent
+		}
+
+		return nil
+	}
+
+	// determine whether inputText is a name of a directory or a path
+	if strings.Contains(inputText, "/") { // could use strings.ContainsRune()?
+		// it is a path
+		path := strings.Split(inputText, "/")
+		curr := fs.Root
+
+		for _, dirName := range path {
+			var directoryFound bool = false
+			for _, dir := range curr.Files {
+				if dir.IsDir && dir.Name == dirName {
+					directoryFound = true
+					curr = dir
+				}
+			}
+
+			if !directoryFound {
+				errors.New("Path invalid")
+			}
+		}
+
+		fs.CurrentDir = curr
+		return nil
+
+	} else {
+		// it is the name of a sub-directory
+		for _, file := range fs.CurrentDir.Files {
+			if file.IsDir && file.Name == inputText {
+				fs.CurrentDir = file
+				return nil
+			}
+		}
+
+		return errors.New("Directory not found")
+	}
+
 }

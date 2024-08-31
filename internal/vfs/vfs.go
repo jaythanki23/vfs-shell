@@ -36,9 +36,6 @@ func NewFileSystem() *FileSystem {
 }
 
 func (fs *FileSystem) CreateFile(name string, content []byte) error {
-	if !fs.CurrentDir.IsDir {
-		return errors.New("not a directory")
-	}
 
 	newFile := &File{
 		Name:    name,
@@ -54,9 +51,6 @@ func (fs *FileSystem) CreateFile(name string, content []byte) error {
 }
 
 func (fs *FileSystem) CreateDir(name string) error {
-	if !fs.CurrentDir.IsDir {
-		return errors.New("not a directory")
-	}
 
 	newDir := &File{
 		Name:    name,
@@ -70,13 +64,21 @@ func (fs *FileSystem) CreateDir(name string) error {
 	return nil
 }
 
-func (fs *FileSystem) ChangeDir(inputText string) error {
+func (fs *FileSystem) ChangeDir(inputText string, currentPath string) (string, error) {
 	if inputText == ".." {
 		if fs.CurrentDir.Parent != nil {
+			indexOfLastSlash := strings.LastIndex(currentPath, "/")
+
+			if indexOfLastSlash == 0 {
+				currentPath = "/"
+			} else {
+				currentPath = currentPath[:indexOfLastSlash]
+			}
+
 			fs.CurrentDir = fs.CurrentDir.Parent
 		}
 
-		return nil
+		return currentPath, nil
 	}
 
 	// determine whether inputText is a name of a directory or a path
@@ -100,18 +102,51 @@ func (fs *FileSystem) ChangeDir(inputText string) error {
 		}
 
 		fs.CurrentDir = curr
-		return nil
+		return inputText, nil
 
 	} else {
 		// it is the name of a sub-directory
 		for _, file := range fs.CurrentDir.Files {
 			if file.IsDir && file.Name == inputText {
 				fs.CurrentDir = file
-				return nil
+				if len(currentPath) > 1 {
+					currentPath = currentPath + "/" + fs.CurrentDir.Name
+				} else {
+					currentPath = currentPath + fs.CurrentDir.Name
+				}
+				return currentPath, nil
 			}
 		}
 
-		return errors.New("Directory not found")
+		return currentPath, errors.New("Directory not found")
 	}
 
+}
+
+func (fs *FileSystem) ReadFile(name string) (string, error) {
+
+	for _, file := range fs.CurrentDir.Files {
+		if !file.IsDir && file.Name == name {
+			return string(file.Content), nil
+		}
+	}
+
+	return "", errors.New("file not found")
+}
+
+func (fs *FileSystem) GetCurrentDirectory() string {
+	var path string
+	current := fs.CurrentDir
+
+	for current != nil {
+		if current.Name == "/" {
+			path = current.Name + path
+		} else {
+			path = current.Name + "/" + path
+		}
+
+		current = current.Parent
+	}
+
+	return path
 }

@@ -11,11 +11,13 @@ import (
 	"vfs-shell/internal/vfs"
 )
 
+var path string = "/"
+
 func StartShell(fs *vfs.FileSystem) {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print(fs.CurrentDir.Name + "/> ")
+		fmt.Print(path + "> ")
 
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
@@ -42,7 +44,8 @@ func executeCommand(fs *vfs.FileSystem, command string) error {
 		if len(args) < 2 {
 			return errors.New("cd: missing argument")
 		} else {
-			err := fs.ChangeDir(args[1])
+			var err error
+			path, err = fs.ChangeDir(args[1], path)
 			if err != nil {
 				return err
 			}
@@ -69,26 +72,33 @@ func executeCommand(fs *vfs.FileSystem, command string) error {
 		}
 
 	case "ls":
-		return listDirectoryContents(fs)
+		for _, file := range fs.CurrentDir.Files {
+			if file.IsDir {
+				fmt.Println(file.Name + "/")
+			} else {
+				fmt.Println(file.Name)
+			}
+		}
+
+		return nil
+
+	case "cat":
+		if len(args) < 2 {
+			return errors.New("cat: missing argument")
+		} else {
+			str, err := fs.ReadFile(args[1])
+			if err != nil {
+				return err
+			} else {
+				fmt.Println(str)
+			}
+		}
+
+	case "pwd":
+		fmt.Println(fs.GetCurrentDirectory())
 
 	default:
-		return errors.New("Unknown command")
-	}
-
-	return nil
-}
-
-func listDirectoryContents(fs *vfs.FileSystem) error {
-	if !fs.CurrentDir.IsDir {
-		return errors.New("current node is not an directory")
-	}
-
-	for _, file := range fs.CurrentDir.Files {
-		if file.IsDir {
-			fmt.Println(file.Name + "/")
-		} else {
-			fmt.Println(file.Name)
-		}
+		return errors.New("unknown command")
 	}
 
 	return nil
